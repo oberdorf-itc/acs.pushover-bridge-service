@@ -2,16 +2,19 @@
 OITC Access Control System: MQTT to Pushover Bridge
 Author: Michael Oberdorf <info@oberdorf-itc.de>
 Date: 2021-01-02
-Copyright (c) 2024, Michael Oberdorf IT-Consulting. All rights reserved.
+Copyright (c) 2021, Michael Oberdorf IT-Consulting. All rights reserved.
 This software may be modified and distributed under the terms of the Apache 2.0 license. See the LICENSE file for details.
 """
-import sys
-import os
-import logging
+
+import http.client
 import json
+import logging
+import os
 import ssl
+import sys
+import urllib
+
 import paho.mqtt.client as mqtt
-import http.client, urllib
 
 __author__ = "Michael Oberdorf <info@oberdorf-itc.de>"
 __status__ = "production"
@@ -28,6 +31,8 @@ __pushover_user_key__ = None
 # F U N C T I O N S
 ###############################################################################
 """
+
+
 def __initialize_logger(severity: int = logging.INFO) -> logging.Logger:
     """
     Initialize the logger with the given severity level.
@@ -53,6 +58,7 @@ def __initialize_logger(severity: int = logging.INFO) -> logging.Logger:
 
     return log
 
+
 def __validate_configuration() -> None:
     """
     Validate the configuration from environment variables.
@@ -68,14 +74,13 @@ def __validate_configuration() -> None:
     if os.environ.get("MQTT_TOPIC_ACS_STATUS", None) is None:
         raise ValueError("MQTT_TOPIC_ACS_STATUS environment variable is not set.")
 
-
     # validate and read pushover user key from environment variables or files
     if os.environ.get("PUSHOVER_USER_KEY", None) is None and os.environ.get("PUSHOVER_USER_KEY_FILE", None) is None:
         raise ValueError("PUSHOVER_USER_KEY or PUSHOVER_USER_KEY_FILE environment variable must be set.")
     if os.environ.get("PUSHOVER_USER_KEY_FILE", None) is not None:
         if not os.path.isfile(os.environ.get("PUSHOVER_USER_KEY_FILE", None)):
             raise ValueError(f"PUSHOVER_USER_KEY_FILE file {os.environ.get("PUSHOVER_USER_KEY_FILE")} not found.")
-        with open(os.environ['PUSHOVER_USER_KEY_FILE'], 'r') as file:
+        with open(os.environ["PUSHOVER_USER_KEY_FILE"]) as file:
             __pushover_user_key__ = file.read().strip()
             if __pushover_user_key__ == "":
                 raise ValueError(f"PUSHOVER_USER_KEY_FILE file {os.environ.get("PUSHOVER_USER_KEY_FILE")} is empty.")
@@ -83,14 +88,14 @@ def __validate_configuration() -> None:
         if os.environ.get("PUSHOVER_USER_KEY", None) is not None:
             log.debug("Use pushover user key from environment variable.")
             __pushover_user_key__ = os.environ.get("PUSHOVER_USER_KEY")
-        
+
     # validate and read pushover app token from environment variables or files
     if os.environ.get("PUSHOVER_APP_TOKEN", None) is None and os.environ.get("PUSHOVER_APP_TOKEN_FILE", None) is None:
         raise ValueError("PUSHOVER_APP_TOKEN or PUSHOVER_APP_TOKEN_FILE environment variable must be set.")
     if os.environ.get("PUSHOVER_APP_TOKEN_FILE", None) is not None:
         if not os.path.isfile(os.environ.get("PUSHOVER_APP_TOKEN_FILE", None)):
             raise ValueError(f"PUSHOVER_APP_TOKEN_FILE file {os.environ.get("PUSHOVER_APP_TOKEN_FILE")} not found.")
-        with open(os.environ['PUSHOVER_APP_TOKEN_FILE'], 'r') as file:
+        with open(os.environ["PUSHOVER_APP_TOKEN_FILE"]) as file:
             __pushover_app_token__ = file.read().strip()
             if __pushover_app_token__ == "":
                 raise ValueError(f"PUSHOVER_APP_TOKEN_FILE file {os.environ.get("PUSHOVER_APP_TOKEN_FILE")} is empty.")
@@ -135,7 +140,7 @@ def __initialize_mqtt_client() -> mqtt.Client:
     if os.environ.get("MQTT_TLS", "false").lower() == "true":
         log.debug("Configure MQTT connection to use TLS encryption.")
 
-        __ca_cert_file__ = '/etc/ssl/certs/ca-certificates.crt'
+        __ca_cert_file__ = "/etc/ssl/certs/ca-certificates.crt"
         if os.environ.get("REQUESTS_CA_BUNDLE", None) is not None:
             __ca_cert_file__ = os.environ.get("REQUESTS_CA_BUNDLE")
         if os.environ.get("MQTT_CACERT_FILE", None) is not None:
@@ -167,7 +172,7 @@ def __initialize_mqtt_client() -> mqtt.Client:
     if os.environ.get("MQTT_PASSWORD_FILE", None) is not None:
         if not os.path.isfile(os.environ.get("MQTT_PASSWORD_FILE", None)):
             raise ValueError("MQTT password file {} not found.".format(os.environ.get("MQTT_PASSWORD_FILE", None)))
-        with open(os.environ.get("MQTT_PASSWORD_FILE", None), "r") as f:
+        with open(os.environ.get("MQTT_PASSWORD_FILE", None)) as f:
             mqtt_pass = f.read().strip()
     if os.environ.get("MQTT_USERNAME", None) is not None and mqtt_pass is not None:
         log.debug("Set username ({}) and password for MQTT connection".format(os.environ.get("MQTT_USERNAME", None)))
@@ -178,6 +183,7 @@ def __initialize_mqtt_client() -> mqtt.Client:
     client.on_message = on_message
 
     return client
+
 
 def on_connect(client: mqtt.Client, userdata: dict, flags: dict, rc: int) -> None:
     """
@@ -198,14 +204,15 @@ def on_connect(client: mqtt.Client, userdata: dict, flags: dict, rc: int) -> Non
     log.debug(f"MQTT connection userdata: {userdata}")
 
     # check for return code
-    if rc!=0:
+    if rc != 0:
         log.error(f"Error in connecting to MQTT Server, RC={rc}")
         sys.exit(1)
 
     # Subscribing in on_connect() means that if we lose the connection and reconnect then subscriptions will be renewed.
-    for topic in [os.environ.get('MQTT_TOPIC_DOOR_ACCESS', None), os.environ.get('MQTT_TOPIC_ACS_STATUS', None)]:
+    for topic in [os.environ.get("MQTT_TOPIC_DOOR_ACCESS", None), os.environ.get("MQTT_TOPIC_ACS_STATUS", None)]:
         log.debug(f"MQTT client subscribing to topic: {topic}")
         client.subscribe(topic)
+
 
 def on_message(client: mqtt.Client, userdata: dict, msg: mqtt.MQTTMessage) -> None:
     """
@@ -226,39 +233,46 @@ def on_message(client: mqtt.Client, userdata: dict, msg: mqtt.MQTTMessage) -> No
     log.debug(f"MQTT message payload: {PAYLOAD}")
 
     # prepare pushover message title
-    title = "[OITC Access Control System] " + PAYLOAD['userName'] + ' is '
+    title = "[OITC Access Control System] " + PAYLOAD["userName"] + " is "
     priority = 0
-    if PAYLOAD['access'] != 'granted':
-        title+= 'not '
+    if PAYLOAD["access"] != "granted":
+        title += "not "
         priority = 1
-    title+= 'authorized to access resource at ' + PAYLOAD['accessTime']
+    title += "authorized to access resource at " + PAYLOAD["accessTime"]
 
     # prepare pushover message body
-    message = 'User: ' + PAYLOAD['userName'] + ' (' + PAYLOAD['userID'] + ')' + "\n"
-    message+= 'Access Point: ' + PAYLOAD['accessPoint'] + "\n"
-    message+= 'is '
-    if PAYLOAD['access'] != 'granted':
-        message+= '<b>not</b> '
-    message+= 'authorized to access resource' + "\n"
-    message+= 'Access time: ' + PAYLOAD['accessTime']
+    message = "User: " + PAYLOAD["userName"] + " (" + PAYLOAD["userID"] + ")" + "\n"
+    message += "Access Point: " + PAYLOAD["accessPoint"] + "\n"
+    message += "is "
+    if PAYLOAD["access"] != "granted":
+        message += "<b>not</b> "
+    message += "authorized to access resource" + "\n"
+    message += "Access time: " + PAYLOAD["accessTime"]
 
-    #open connection to pushover service
+    # open connection to pushover service
     log.debug(f"Open connection to pushover: https://{__pushover_server__}")
     conn = http.client.HTTPSConnection(__pushover_server__)
-    
+
     # send push message
     log.debug(f"Send push message with title: {title} and message: {message}")
-    conn.request("POST", "/1/messages.json",
-      urllib.parse.urlencode({
-      "token": __pushover_app_token__,
-      "user": __pushover_user_key__,
-      "title": title,
-      "message": message,
-      "priority": priority
-      }), { "Content-type": "application/x-www-form-urlencoded" })
+    conn.request(
+        "POST",
+        "/1/messages.json",
+        urllib.parse.urlencode(
+            {
+                "token": __pushover_app_token__,
+                "user": __pushover_user_key__,
+                "title": title,
+                "message": message,
+                "priority": priority,
+            }
+        ),
+        {"Content-type": "application/x-www-form-urlencoded"},
+    )
 
     # get repsonse
     conn.getresponse()
+
 
 """
 ###############################################################################
@@ -281,7 +295,11 @@ if __name__ == "__main__":
     client = __initialize_mqtt_client()
     log.debug("MQTT client initialized")
     # connect to MQTT server
-    log.debug("Connecting to MQTT server {}:{}".format(os.environ.get("MQTT_SERVER", "localhost"), os.environ.get("MQTT_PORT", 1883)))
+    log.debug(
+        "Connecting to MQTT server {}:{}".format(
+            os.environ.get("MQTT_SERVER", "localhost"), os.environ.get("MQTT_PORT", 1883)
+        )
+    )
     try:
         client.connect(os.environ.get("MQTT_SERVER", "localhost"), int(os.environ.get("MQTT_PORT", 1883)), 60)
     except ssl.SSLCertVerificationError as e:
