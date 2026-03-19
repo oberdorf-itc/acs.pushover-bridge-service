@@ -42,24 +42,26 @@ This service is *NO* standalone service. It requires an OITC ACS system to be ru
 
 The container get's the configuration from environment variables.
 
-| Variable name             | Description                                                                                     | Required      | Default value                        |
-|---------------------------|-------------------------------------------------------------------------------------------------|---------------|--------------------------------------|
-| `MQTT_SERVER`             | The MQTT server hostname or IP address.                                                         | OPTIONAL      | `localhost`                          |
-| `MQTT_PORT`               | The TCP port of the MQTT server.                                                                | OPTIONAL      | `1883`                               |
-| `MQTT_PROTOCOL_VERSION`   | The MQTT protocol version to use. Currently supported `3` (means 3.1.1) and `5`.                | OPTIONAL      | `3`                                  |
-| `MQTT_TLS`                | Should SSL communication be enabled (`true`) or not (`false`).                                  | OPTIONAL      | `false`                              |
-| `MQTT_CACERT_FILE`        | If TLS is enabled, the path to the CA certificate file to validate the MQTT server certificate. | OPTIONAL      | `/etc/ssl/certs/ca-certificates.crt` |
-| `MQTT_TLS_INSECURE`       | If TLS is enabled, skip the hostname validation of the TLS certificate.                         | OPTIONAL      | `false`                              |
-| `MQTT_CLIENT_ID`          | The MQTT client id to use for the MQTT connection.                                              | OPTIONAL      |                                      |
-| `MQTT_USERNAME`           | The MQTT username for MQTT authentication.                                                      | OPTIONAL      |                                      |
-| `MQTT_PASSWORD`           | The MQTT password for MQTT authentication.                                                      | OPTIONAL      |                                      |
-| `MQTT_PASSWORD_FILE`      | The filepath where the MQTT password is stored for MQTT authentication.                         | OPTIONAL      |                                      |
-| `MQTT_TOPIC_ACS_STATUS`   | The MQTT topic to subscribe that contains the status messages of the ACS.                       | **MANDATORY** |                                      |
-| `MQTT_TOPIC_DOOR_ACCESS`  | The MQTT topic to subscribe that contains the door access information.                          | **MANDATORY** |                                      |
-| `PUSHOVER_APP_TOKEN`      | The application key of the pushover ACS application.                                            | OPTIONAL      |                                      |
-| `PUSHOVER_APP_TOKEN_FILE` | The filepath of a file that contains the application key of the pushover ACS application.       | **MANDATORY** |                                      |
-| `PUSHOVER_USER_KEY`       | The user key of the pushover account.                                                           | OPTIONAL      |                                      |
-| `PUSHOVER_USER_KEY_FILE`  | The filepath of a file that contains the user key of the pushover account.                      | **MANDATORY** |                                      |
+| Variable name              | Description                                                                                     | Required      | Default value                        |
+|----------------------------|-------------------------------------------------------------------------------------------------|---------------|--------------------------------------|
+| `MQTT_SERVER`              | The MQTT server hostname or IP address.                                                         | OPTIONAL      | `localhost`                          |
+| `MQTT_PORT`                | The TCP port of the MQTT server.                                                                | OPTIONAL      | `1883`                               |
+| `MQTT_PROTOCOL_VERSION`    | The MQTT protocol version to use. Currently supported `3` (means 3.1.1) and `5`.                | OPTIONAL      | `3`                                  |
+| `MQTT_TLS`                 | Should SSL communication be enabled (`true`) or not (`false`).                                  | OPTIONAL      | `false`                              |
+| `MQTT_CACERT_FILE`         | If TLS is enabled, the path to the CA certificate file to validate the MQTT server certificate. | OPTIONAL      | `/etc/ssl/certs/ca-certificates.crt` |
+| `MQTT_TLS_INSECURE`        | If TLS is enabled, skip the hostname validation of the TLS certificate.                         | OPTIONAL      | `false`                              |
+| `MQTT_CLIENT_ID`           | The MQTT client id to use for the MQTT connection.                                              | OPTIONAL      |                                      |
+| `MQTT_USERNAME`            | The MQTT username for MQTT authentication.                                                      | OPTIONAL      |                                      |
+| `MQTT_PASSWORD`            | The MQTT password for MQTT authentication.                                                      | OPTIONAL      |                                      |
+| `MQTT_PASSWORD_FILE`       | The filepath where the MQTT password is stored for MQTT authentication.                         | OPTIONAL      |                                      |
+| `MQTT_TOPIC_ACS_STATUS`    | The MQTT topic to subscribe that contains the status messages of the ACS.                       | **MANDATORY** |                                      |
+| `MQTT_TOPIC_DOOR_ACCESS`   | The MQTT topic to subscribe that contains the door access information.                          | **MANDATORY** |                                      |
+| `PUSHOVER_APP_TOKEN`       | The application key of the pushover ACS application.                                            | OPTIONAL      |                                      |
+| `PUSHOVER_APP_TOKEN_FILE`  | The filepath of a file that contains the application key of the pushover ACS application.       | **MANDATORY** |                                      |
+| `PUSHOVER_USER_KEY`        | The user key of the pushover account.                                                           | OPTIONAL      |                                      |
+| `PUSHOVER_USER_KEY_FILE`   | The filepath of a file that contains the user key of the pushover account.                      | **MANDATORY** |                                      |
+| `PROMETHEUS_LISTENER_ADDR` | The listener address to expose the prometheus exporter.                                         | OPTIONAL      | `0.0.0.0`                            |
+| `PROMETHEUS_LISTENER_PORT` | The TCP listener port to expose the prometheus exporter.                                        | OPTIONAL      | `8080`                               |
 
 **HINT:**
 
@@ -95,6 +97,34 @@ secrets:
 ```
 
 A bigger example can be found here: [`docker-compose.yaml`](./docker-compose.yaml)
+
+## MQTT message formats
+
+### Access message when opening a door
+
+```json
+{
+  "timestamp": "<timestamp>",
+  "entrypoint_ip": "<IP address of the RFID reader>",
+  "entrypoint_location": "<Name of the entry point>",
+  "transponder_uid": "<RFID transponder UID>",
+  "user_id": "<user ID>",
+  "user_dn": "<LDAP destinguished name of the user object>",
+  "user_display_name": "<Name of the user>",
+  "status": "<granted|denied>",
+}
+```
+
+### ACS Server status
+
+```json
+{
+  "timestamp": "<timestamp>",
+  "severity": "<info|warning|error>",
+  "status": "<status short description>",
+  "description": "<status message>"
+}
+```
 
 ## Donate
 

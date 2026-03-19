@@ -6,6 +6,7 @@ Copyright (c) 2021, Michael Oberdorf IT-Consulting. All rights reserved.
 This software may be modified and distributed under the terms of the Apache 2.0 license. See the LICENSE file for details.
 """
 
+import datetime
 import http.client
 import json
 import logging
@@ -15,13 +16,16 @@ import sys
 import urllib
 
 import paho.mqtt.client as mqtt
+import prometheus_client as prom
+import pytz
 
 __author__ = "Michael Oberdorf <info@oberdorf-itc.de>"
 __status__ = "production"
-__date__ = "2026-03-18"
+__date__ = "2026-03-19"
 __version_info__ = ("1", "0", "0")
 __version__ = ".".join(__version_info__)
 
+__local_tz__ = pytz.timezone(os.environ.get("TZ", "UTC"))
 __pushover_server__ = "api.pushover.net:443"
 __pushover_app_token__ = None
 __pushover_user_key__ = None
@@ -59,11 +63,11 @@ def __initialize_logger(severity: int = logging.INFO) -> logging.Logger:
     return log
 
 
-def __validate_configuration() -> None:
+def __validate_configuration() -> tuple[str, str]:
     """
     Validate the configuration from environment variables.
 
-    :return None
+    :return tuple[str, str]: The validated pushover app token and user key.
     :raise ValueError: If the configuration is not valid.
     :raise Exception: If the configuration cannot be validated.
     """
@@ -81,7 +85,7 @@ def __validate_configuration() -> None:
         if not os.path.isfile(os.environ.get("PUSHOVER_USER_KEY_FILE", None)):
             raise ValueError(f"PUSHOVER_USER_KEY_FILE file {os.environ.get("PUSHOVER_USER_KEY_FILE")} not found.")
         with open(os.environ["PUSHOVER_USER_KEY_FILE"]) as file:
-            __pushover_user_key__ = file.read().strip()
+            __pushover_user_key__ = file.read().strip().replace("\n", "")
             if __pushover_user_key__ == "":
                 raise ValueError(f"PUSHOVER_USER_KEY_FILE file {os.environ.get("PUSHOVER_USER_KEY_FILE")} is empty.")
     else:
@@ -96,13 +100,40 @@ def __validate_configuration() -> None:
         if not os.path.isfile(os.environ.get("PUSHOVER_APP_TOKEN_FILE", None)):
             raise ValueError(f"PUSHOVER_APP_TOKEN_FILE file {os.environ.get("PUSHOVER_APP_TOKEN_FILE")} not found.")
         with open(os.environ["PUSHOVER_APP_TOKEN_FILE"]) as file:
-            __pushover_app_token__ = file.read().strip()
+            __pushover_app_token__ = file.read().strip().replace("\n", "")
             if __pushover_app_token__ == "":
                 raise ValueError(f"PUSHOVER_APP_TOKEN_FILE file {os.environ.get("PUSHOVER_APP_TOKEN_FILE")} is empty.")
     else:
         if os.environ.get("PUSHOVER_APP_TOKEN", None) is not None:
             log.debug("Use pushover app token from environment variable.")
             __pushover_app_token__ = os.environ.get("PUSHOVER_APP_TOKEN")
+
+    return __pushover_app_token__, __pushover_user_key__
+
+
+def __initialize_prometheus_exporter() -> dict:
+    """
+    Intialize and start the prometheus exporter endpoint
+
+    :return The different initialized prometheus metrics as a dict of objects
+    :rtype dict
+    :raise Exception: If the prometheus exporter cannot be initialized or started.
+    """
+    log.debug("def initialize_prometheus_exporter() -> dict:")
+
+    m = {}
+    # TODO: Define prometheus metrics here, e.g.:
+    # - a counter for the number of door access events received (overall and per entry point)
+    # - a counter for the number of access granted and denied events received (overall and per entry point)
+
+    prometheus_listener_addr = os.environ.get("PROMETHEUS_LISTENER_ADDR", "0.0.0.0")
+    prometheus_listener_port = int(os.environ.get("PROMETHEUS_LISTENER_PORT", "8080"))
+    log.info("Starting prometheus exporter listener: %s:%s", prometheus_listener_addr, prometheus_listener_port)
+    s, t = prom.start_http_server(port=prometheus_listener_port, addr=prometheus_listener_addr)
+    if not s or not t:
+        raise RuntimeError("The Prometheus exporter http endpoint failed to start.")
+
+    return m
 
 
 def __initialize_mqtt_client() -> mqtt.Client:
@@ -173,7 +204,7 @@ def __initialize_mqtt_client() -> mqtt.Client:
         if not os.path.isfile(os.environ.get("MQTT_PASSWORD_FILE", None)):
             raise ValueError("MQTT password file {} not found.".format(os.environ.get("MQTT_PASSWORD_FILE", None)))
         with open(os.environ.get("MQTT_PASSWORD_FILE", None)) as f:
-            mqtt_pass = f.read().strip()
+            mqtt_pass = f.read().strip().replace("\n", "")
     if os.environ.get("MQTT_USERNAME", None) is not None and mqtt_pass is not None:
         log.debug("Set username ({}) and password for MQTT connection".format(os.environ.get("MQTT_USERNAME", None)))
         client.username_pw_set(os.environ.get("MQTT_USERNAME", None), mqtt_pass)
@@ -181,11 +212,12 @@ def __initialize_mqtt_client() -> mqtt.Client:
     # register callback functions
     client.on_connect = on_connect
     client.on_message = on_message
+    client.on_subscribe = on_subscribe
 
     return client
 
 
-def on_connect(client: mqtt.Client, userdata: dict, flags: dict, rc: int) -> None:
+def on_connect(client: mqtt.Client, userdata: dict, flags: dict, rc: int, properties: mqtt.Properties) -> None:
     """
     on_connect - The MQTT callback for when the client receives a CONNACK response from the server.
 
@@ -202,6 +234,7 @@ def on_connect(client: mqtt.Client, userdata: dict, flags: dict, rc: int) -> Non
     log.debug(f"MQTT client connected with result code {rc}")
     log.debug(f"MQTT connection flags: {flags}")
     log.debug(f"MQTT connection userdata: {userdata}")
+    log.debug(f"MQTT connection properties: {properties}")
 
     # check for return code
     if rc != 0:
@@ -212,6 +245,34 @@ def on_connect(client: mqtt.Client, userdata: dict, flags: dict, rc: int) -> Non
     for topic in [os.environ.get("MQTT_TOPIC_DOOR_ACCESS", None), os.environ.get("MQTT_TOPIC_ACS_STATUS", None)]:
         log.debug(f"MQTT client subscribing to topic: {topic}")
         client.subscribe(topic)
+
+
+def on_subscribe(
+    client: mqtt.Client, userdata: dict, mid: int, reason_code_list: list, properties: mqtt.Properties
+) -> None:
+    """
+    on_subscribe - The MQTT callback for when the client receives a SUBACK response from the server.
+
+    :param client: The object of the MQTT connection
+    :type client: paho.mqtt.client.Client
+    :param userdata: the user data of the MQTT connection
+    :type userdata: dict
+    :param mid: the message ID of the subscribe request
+    :type mid: int
+    :param reason_code_list: the list of reason codes for the subscribe request
+    :type reason_code_list: list
+    :param properties: the MQTT properties of the subscribe response
+    :type properties: paho.mqtt.client.MQTTProperties
+    :return None
+    """
+    log.debug(
+        f"MQTT client received SUBACK for message ID {mid} with reason codes {reason_code_list} and properties {properties}"
+    )
+    log.debug(f"MQTT client userdata: {userdata}")
+    if reason_code_list[0].is_failure:
+        log.error(f"Broker rejected you subscription: {reason_code_list[0]}")
+    else:
+        log.debug(f"Broker granted the following QoS: {reason_code_list[0].value}")
 
 
 def on_message(client: mqtt.Client, userdata: dict, msg: mqtt.MQTTMessage) -> None:
@@ -232,33 +293,33 @@ def on_message(client: mqtt.Client, userdata: dict, msg: mqtt.MQTTMessage) -> No
     PAYLOAD = json.loads(str(msg.payload.decode("utf-8")))
     log.debug(f"MQTT message payload: {PAYLOAD}")
 
-    # prepare pushover message title
-    title = "[OITC Access Control System] " + PAYLOAD["userName"] + " is "
-    priority = 0
-    if PAYLOAD["access"] != "granted":
-        title += "not "
-        priority = 1
-    title += "authorized to access resource at " + PAYLOAD["accessTime"]
+    # parse timestamp from payload and compare with current time to check if message is not too old (older than 10 seconds)
+    timestamp = PAYLOAD.get("timestamp", None)
+    if timestamp:
+        # Convert timestamp to datetime object
+        msg_timestamp = datetime.datetime.fromisoformat(timestamp.replace("Z", "+00:00"))
+        # Get current time
+        current_time = datetime.datetime.now(__local_tz__)
+        # Check if message is older than 10 seconds
+        if (current_time - msg_timestamp).total_seconds() > 10:
+            log.warning(f"MQTT message is too old: {timestamp}")
+            return
 
-    # prepare pushover message body
-    message = "User: " + PAYLOAD["userName"] + " (" + PAYLOAD["userID"] + ")" + "\n"
-    message += "Access Point: " + PAYLOAD["accessPoint"] + "\n"
-    message += "is "
-    if PAYLOAD["access"] != "granted":
-        message += "<b>not</b> "
-    message += "authorized to access resource" + "\n"
-    message += "Access time: " + PAYLOAD["accessTime"]
+    if mqtt.topic_matches_sub(os.environ.get("MQTT_TOPIC_ACS_STATUS", None), msg.topic):
+        title, message, priority = __prepare_status_message(PAYLOAD)
+    elif mqtt.topic_matches_sub(os.environ.get("MQTT_TOPIC_DOOR_ACCESS", None), msg.topic):
+        title, message, priority = __prepare_access_message(PAYLOAD)
 
     # open connection to pushover service
     log.debug(f"Open connection to pushover: https://{__pushover_server__}")
-    conn = http.client.HTTPSConnection(__pushover_server__)
+    conn = http.client.HTTPSConnection(__pushover_server__, timeout=2)
 
     # send push message
-    log.debug(f"Send push message with title: {title} and message: {message}")
+    log.debug(f"Send push message with priority {priority}, title: {title} and message: {message}")
     conn.request(
-        "POST",
-        "/1/messages.json",
-        urllib.parse.urlencode(
+        method="POST",
+        url="/1/messages.json",
+        body=urllib.parse.urlencode(
             {
                 "token": __pushover_app_token__,
                 "user": __pushover_user_key__,
@@ -267,11 +328,84 @@ def on_message(client: mqtt.Client, userdata: dict, msg: mqtt.MQTTMessage) -> No
                 "priority": priority,
             }
         ),
-        {"Content-type": "application/x-www-form-urlencoded"},
+        headers={"Content-type": "application/x-www-form-urlencoded"},
     )
+    log.debug(f"Connected to pushover at {conn.sock.getpeername()}")
 
     # get repsonse
-    conn.getresponse()
+    response = conn.getresponse()
+    if response.status != 200:
+        log.error(f"Error in sending push message to pushover: {response.status} {response.reason}")
+    else:
+        log.debug(f"Push message sent successfully to pushover: {response.status} {response.reason}")
+
+
+def __prepare_access_message(payload: dict) -> tuple[str, str, int]:
+    """
+    Prepare the message to be sent to pushover based on the payload of the MQTT message received.
+
+    :param payload: The payload of the MQTT message received.
+    :type payload: dict
+    :return tuple[str, str, int]: The formatted title, message, and priority to be sent to pushover.
+    """
+
+    # prepare pushover message title
+    title = "[OITC Access Control System] " + payload.get("user_display_name", "Unknown User") + " is "
+    if payload.get("status") != "granted":
+        title += "not "
+    title += "authorized to access resource at " + payload.get("timestamp", "Unknown Time")
+
+    # prepare pushover message
+    message = (
+        "User: "
+        + payload.get("user_display_name", "Unknown User")
+        + " ("
+        + payload.get("user_id", "Unknown ID")
+        + ")"
+        + "\n"
+    )
+    message += "Entrypoint: " + payload.get("entrypoint_location", "Unknown Entrypoint") + "\n"
+    message += "is "
+    if payload.get("status") != "granted":
+        message += "<b>not</b> "
+    message += "authorized to access resource" + "\n"
+    message += "Access time: " + payload.get("timestamp", "Unknown Time")
+
+    # set message priority to 1 if access is not granted, otherwise 0
+    priority = 0
+    if payload.get("status") != "granted":
+        priority = 1
+
+    return title, message, priority
+
+
+def __prepare_status_message(payload: dict) -> tuple[str, str, int]:
+    """
+    Prepare the message to be sent to pushover based on the payload of the MQTT message received.
+
+    :param payload: The payload of the MQTT message received.
+    :type payload: dict
+    :return tuple[str, str, int]: The formatted title, message, and priority to be sent to pushover.
+    """
+    # set message priority to 1 if acs status is not ok, otherwise 0
+    severity = payload.get("severity", "unknown").lower().strip()
+    priority = 0
+    if severity == "info":
+        priority = 0
+    elif severity == "warning":
+        priority = 1
+    elif severity == "error":
+        priority = 1
+    else:
+        priority = 0
+
+    # prepare pushover message title
+    title = f"[OITC Access Control System] {severity.upper()} {payload.get('status', '')}"
+
+    # prepare pushover message
+    message = payload.get("description", "No message provided.") + "\n"
+
+    return title, message, priority
 
 
 """
@@ -279,17 +413,19 @@ def on_message(client: mqtt.Client, userdata: dict, msg: mqtt.MQTTMessage) -> No
 # M A I N
 ###############################################################################
 """
-# initialize logger
-if os.getenv("DEBUG", "false").lower() == "true":
-    log = __initialize_logger(logging.DEBUG)
-else:
-    log = __initialize_logger(logging.INFO)
-
 if __name__ == "__main__":
+    # initialize logger
+    if os.getenv("DEBUG", "false").lower() == "true":
+        log = __initialize_logger(logging.DEBUG)
+    else:
+        log = __initialize_logger(logging.INFO)
     log.info(f"Starting OITC Access Control System Pushover bridge service version {__version__}")
 
     # validate configuration
-    __validate_configuration()
+    __pushover_app_token__, __pushover_user_key__ = __validate_configuration()
+
+    # initialize prometheus exporter
+    metrics = __initialize_prometheus_exporter()
 
     # Initialize MQTT client
     client = __initialize_mqtt_client()

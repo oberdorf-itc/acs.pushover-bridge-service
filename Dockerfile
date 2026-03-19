@@ -7,7 +7,9 @@ ENV MQTT_SERVER=localhost \
     MQTT_PORT=1883 \
     MQTT_TLS_enabled=false \
     MQTT_TLS_no_hostname_validation=false \
-    REQUESTS_CA_BUNDLE=/etc/ssl/certs/ca-certificates.crt
+    REQUESTS_CA_BUNDLE=/etc/ssl/certs/ca-certificates.crt \
+    PROMETHEUS_LISTENER_ADDR=0.0.0.0 \
+    PROMETHEUS_LISTENER_PORT=8080
 
 RUN apk upgrade --available --no-cache --update \
     && apk add --no-cache --update \
