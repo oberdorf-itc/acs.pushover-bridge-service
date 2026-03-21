@@ -113,6 +113,7 @@ A bigger example can be found here: [`docker-compose.yaml`](./docker-compose.yam
   "user_dn": "<LDAP destinguished name of the user object>",
   "user_display_name": "<Name of the user>",
   "status": "<granted|denied>",
+  "send_mail": true|false"
 }
 ```
 
