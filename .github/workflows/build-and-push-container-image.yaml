@@ -29,7 +29,7 @@ jobs:
             echo "ERROR: unable to detect version number!" >&2
             exit 1
           fi
-          echo "tag=${image_version}" >> $GITHUB_OUTPUT
+          echo "tag=${image_version}" >> "${GITHUB_OUTPUT}"
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
       - name: Set up Docker Buildx

@@ -27,7 +27,7 @@ from app import service
 def setup_service_module():
     """Setup module-level variables before each test"""
     # Set up mock metrics before each test
-    original_metrics = getattr(service, 'metrics', None)
+    original_metrics = getattr(service, "metrics", None)
     service.metrics = {
         "mqtt_messages": MagicMock(),
         "mqtt_messages_refused": MagicMock(),
@@ -37,12 +37,12 @@ def setup_service_module():
         "pushover_messages_sent": MagicMock(return_value=MagicMock()),
         "mqtt_connects": MagicMock(),
     }
-    
+
     # Set up mock log
     service.log = MagicMock()
-    
+
     yield
-    
+
     # Restore original values
     if original_metrics is not None:
         service.metrics = original_metrics
@@ -54,7 +54,7 @@ class TestPrepareAccessMessage:
     def test_prepare_access_message_granted(self):
         """Test preparing access granted message"""
         prepare_access = getattr(service, "__prepare_access_message")
-        
+
         payload = {
             "user_display_name": "John Doe",
             "user_id": "user123",
@@ -75,7 +75,7 @@ class TestPrepareAccessMessage:
     def test_prepare_access_message_denied(self):
         """Test preparing access denied message"""
         prepare_access = getattr(service, "__prepare_access_message")
-        
+
         payload = {
             "user_display_name": "Jane Smith",
             "user_id": "user456",
@@ -95,7 +95,7 @@ class TestPrepareAccessMessage:
     def test_prepare_access_message_missing_fields(self):
         """Test preparing access message with missing optional fields"""
         prepare_access = getattr(service, "__prepare_access_message")
-        
+
         payload = {
             "status": "granted",
             "entrypoint_ip": "192.168.1.100",
@@ -111,7 +111,7 @@ class TestPrepareAccessMessage:
     def test_prepare_access_message_with_unknown_status(self):
         """Test preparing access message with unknown status"""
         prepare_access = getattr(service, "__prepare_access_message")
-        
+
         payload = {
             "user_display_name": "Test User",
             "user_id": "user789",
@@ -133,7 +133,7 @@ class TestPrepareStatusMessage:
     def test_prepare_status_message_info(self):
         """Test preparing info status message"""
         prepare_status = getattr(service, "__prepare_status_message")
-        
+
         payload = {
             "severity": "info",
             "status": "System OK",
@@ -150,7 +150,7 @@ class TestPrepareStatusMessage:
     def test_prepare_status_message_warning(self):
         """Test preparing warning status message"""
         prepare_status = getattr(service, "__prepare_status_message")
-        
+
         payload = {
             "severity": "warning",
             "status": "Low Memory",
@@ -166,7 +166,7 @@ class TestPrepareStatusMessage:
     def test_prepare_status_message_error(self):
         """Test preparing error status message"""
         prepare_status = getattr(service, "__prepare_status_message")
-        
+
         payload = {
             "severity": "error",
             "status": "Connection Lost",
@@ -181,7 +181,7 @@ class TestPrepareStatusMessage:
     def test_prepare_status_message_case_insensitive_severity(self):
         """Test that severity is processed case-insensitively"""
         prepare_status = getattr(service, "__prepare_status_message")
-        
+
         payloads = [
             {"severity": "INFO", "status": "OK", "description": "Test"},
             {"severity": "Info", "status": "OK", "description": "Test"},
@@ -198,7 +198,7 @@ class TestPrepareStatusMessage:
     def test_prepare_status_message_unknown_severity(self):
         """Test preparing status message with unknown severity"""
         prepare_status = getattr(service, "__prepare_status_message")
-        
+
         payload = {
             "severity": "unknown",
             "status": "Unknown Status",
@@ -213,7 +213,7 @@ class TestPrepareStatusMessage:
     def test_prepare_status_message_missing_description(self):
         """Test preparing status message with missing description"""
         prepare_status = getattr(service, "__prepare_status_message")
-        
+
         payload = {
             "severity": "info",
             "status": "System OK",
@@ -237,7 +237,7 @@ class TestOnConnect:
     def test_on_connect_success(self):
         """Test on_connect callback with successful connection"""
         mock_client = MagicMock()
-        
+
         userdata = {}
         flags = {"session present": 0}
         rc = 0
@@ -259,7 +259,7 @@ class TestOnConnect:
     def test_on_connect_failure(self, mock_exit):
         """Test on_connect callback with connection failure"""
         mock_client = MagicMock()
-        
+
         userdata = {}
         flags = {"session present": 0}
         rc = 1
