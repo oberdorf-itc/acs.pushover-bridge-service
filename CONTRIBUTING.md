@@ -5,9 +5,9 @@
 * **Do not open up a GitHub issue if the bug is a security vulnerability
   in acs.pushover-bridge-service**, and instead write me a mail to [info@oberdorf-itc.de](mailto:info@oberdorf-itc.de).
 
-* **Ensure the bug was not already reported** by searching on GitHub under [Issues](https://github.com/oberdorf-itc/docker.acs.pushover-bridge-service/issues).
+* **Ensure the bug was not already reported** by searching on GitHub under [Issues](https://github.com/oberdorf-itc/acs.pushover-bridge-service/issues).
 
-* If you're unable to find an open issue addressing the problem, [open a new one](https://github.com/oberdorf-itc/docker.acs.pushover-bridge-service/issues/new). Be sure to include a **title and clear description**, as much relevant information as possible, and a **code sample** or an **executable test case** demonstrating the expected behavior that is not occurring.
+* If you're unable to find an open issue addressing the problem, [open a new one](https://github.com/oberdorf-itc/acs.pushover-bridge-service/issues/new). Be sure to include a **title and clear description**, as much relevant information as possible, and a **code sample** or an **executable test case** demonstrating the expected behavior that is not occurring.
 
 ## **Did you write a patch that fixes a bug?**
 
