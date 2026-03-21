@@ -81,8 +81,8 @@ services:
       MQTT_SERVER: test.mosquitto.org
       MQTT_PORT: 1883
       MQTT_PROTOCOL_VERSION: 3
-      MQTT_TOPIC_ACS_STATUS: oitc/acs/general/notify
-      MQTT_TOPIC_DOOR_ACCESS: oitc/acs/entrypoints/#
+      MQTT_TOPIC_ACS_STATUS: location/oitc-acs/general/status
+      MQTT_TOPIC_DOOR_ACCESS: location/oitc-acs/entrypoints/+/access
       PUSHOVER_APP_TOKEN_FILE: /run/secrets/pushover_app_token
       PUSHOVER_USER_KEY_FILE: /run/secrets/pushover_user_key
     secrets:

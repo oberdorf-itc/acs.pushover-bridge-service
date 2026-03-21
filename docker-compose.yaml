@@ -14,12 +14,17 @@ services:
       MQTT_USERNAME: acs.pushover-bridge-service
       #MQTT_PASSWORD: myMQTTPassword
       MQTT_PASSWORD_FILE: /run/secrets/mqtt_password
-      MQTT_TOPIC_ACS_STATUS: oitc/acs/general/notify
-      MQTT_TOPIC_DOOR_ACCESS: oitc/acs/entrypoints/#
+      MQTT_TOPIC_ACS_STATUS: location/oitc-acs/general/status
+      MQTT_TOPIC_DOOR_ACCESS: location/oitc-acs/entrypoints/+/access
       #PUSHOVER_APP_TOKEN: myPushoverAppToke
       PUSHOVER_APP_TOKEN_FILE: /run/secrets/pushover_app_token
       #PUSHOVER_USER_KEY: myPushoverUserKey
       PUSHOVER_USER_KEY_FILE: /run/secrets/pushover_user_key
+      PROMETHEUS_LISTENER_ADDR: 0.0.0.0
+      PROMETHEUS_LISTENER_PORT: 8080
+      TZ: Europe/Berlin
+    ports:
+      - "8080:8080"
     secrets:
       - mqtt_password
       - pushover_app_token

@@ -121,10 +121,16 @@ def __initialize_prometheus_exporter() -> dict:
     """
     log.debug("def initialize_prometheus_exporter() -> dict:")
 
-    m = {}
-    # TODO: Define prometheus metrics here, e.g.:
-    # - a counter for the number of door access events received (overall and per entry point)
-    # - a counter for the number of access granted and denied events received (overall and per entry point)
+    m = {
+        "service_info": prom.Info('service_info', 'Information about the service'),
+        "mqtt_connects": prom.Counter('mqtt_connects', 'Count all MQTT connection events'),
+        "mqtt_messages": prom.Counter('mqtt_messages', 'Count all received MQTT messages'),
+        "mqtt_messages_refused": prom.Counter('mqtt_messages_refused', 'Count all refused MQTT messages due to timestamp drift.'),
+        "acs_access_granted": prom.Counter('acs_access_granted', 'Count all access granted events received by transponders', labelnames=['entrypoint_ip']),
+        "acs_access_denied": prom.Counter('acs_access_denied', 'Count all access denied events received by transponders', labelnames=['entrypoint_ip']),
+        "acs_status_messages": prom.Counter('acs_status_messages', 'Count all status messages received by the access control system', labelnames=['severity']),
+        "pushover_messages_sent": prom.Counter('pushover_messages_sent', 'Count all messages sent to pushover', labelnames=['result_code']),
+    }
 
     prometheus_listener_addr = os.environ.get("PROMETHEUS_LISTENER_ADDR", "0.0.0.0")
     prometheus_listener_port = int(os.environ.get("PROMETHEUS_LISTENER_PORT", "8080"))
@@ -236,6 +242,8 @@ def on_connect(client: mqtt.Client, userdata: dict, flags: dict, rc: int, proper
     log.debug(f"MQTT connection userdata: {userdata}")
     log.debug(f"MQTT connection properties: {properties}")
 
+    metrics["mqtt_connects"].inc()
+
     # check for return code
     if rc != 0:
         log.error(f"Error in connecting to MQTT Server, RC={rc}")
@@ -288,6 +296,7 @@ def on_message(client: mqtt.Client, userdata: dict, msg: mqtt.MQTTMessage) -> No
     :return None
     """
     log.debug(f"MQTT message received on topic {msg.topic} with QoS {msg.qos} and retain flag {msg.retain}")
+    metrics["mqtt_messages"].inc()
 
     # parse message payload as JSON object
     PAYLOAD = json.loads(str(msg.payload.decode("utf-8")))
@@ -303,12 +312,17 @@ def on_message(client: mqtt.Client, userdata: dict, msg: mqtt.MQTTMessage) -> No
         # Check if message is older than 10 seconds
         if (current_time - msg_timestamp).total_seconds() > 10:
             log.warning(f"MQTT message is too old: {timestamp}")
+            metrics["mqtt_messages_refused"].inc()
             return
 
     if mqtt.topic_matches_sub(os.environ.get("MQTT_TOPIC_ACS_STATUS", None), msg.topic):
         title, message, priority = __prepare_status_message(PAYLOAD)
     elif mqtt.topic_matches_sub(os.environ.get("MQTT_TOPIC_DOOR_ACCESS", None), msg.topic):
         title, message, priority = __prepare_access_message(PAYLOAD)
+    else:
+        title = "Unknown message type"
+        message = f"Received message on topic {msg.topic} with payload {PAYLOAD}"
+        priority = 0
 
     # open connection to pushover service
     log.debug(f"Open connection to pushover: https://{__pushover_server__}")
@@ -334,6 +348,7 @@ def on_message(client: mqtt.Client, userdata: dict, msg: mqtt.MQTTMessage) -> No
 
     # get repsonse
     response = conn.getresponse()
+    metrics['pushover_messages_sent'].labels(result_code=response.status).inc()
     if response.status != 200:
         log.error(f"Error in sending push message to pushover: {response.status} {response.reason}")
     else:
@@ -376,6 +391,17 @@ def __prepare_access_message(payload: dict) -> tuple[str, str, int]:
     if payload.get("status") != "granted":
         priority = 1
 
+    # increment appropriate metric
+    if payload.get("status") == "granted":
+        metrics["acs_access_granted"].labels(
+            entrypoint_ip=payload.get("entrypoint_ip", "unknown")
+        ).inc()
+    else:
+        metrics["acs_access_denied"].labels(
+            entrypoint_ip=payload.get("entrypoint_ip", "unknown")
+        ).inc()
+
+
     return title, message, priority
 
 
@@ -405,6 +431,9 @@ def __prepare_status_message(payload: dict) -> tuple[str, str, int]:
     # prepare pushover message
     message = payload.get("description", "No message provided.") + "\n"
 
+    # metrics
+    metrics["acs_status_messages"].labels(severity=severity).inc()
+
     return title, message, priority
 
 
@@ -426,6 +455,12 @@ if __name__ == "__main__":
 
     # initialize prometheus exporter
     metrics = __initialize_prometheus_exporter()
+    metrics["service_info"].info({
+        "version": __version__,
+        "author": __author__,
+        "status": __status__,
+        "timezone": __local_tz__.zone,
+    })
 
     # Initialize MQTT client
     client = __initialize_mqtt_client()
