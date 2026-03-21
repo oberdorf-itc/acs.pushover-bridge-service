@@ -62,6 +62,7 @@ The container get's the configuration from environment variables.
 | `PUSHOVER_USER_KEY_FILE`   | The filepath of a file that contains the user key of the pushover account.                      | **MANDATORY** |                                      |
 | `PROMETHEUS_LISTENER_ADDR` | The listener address to expose the prometheus exporter.                                         | OPTIONAL      | `0.0.0.0`                            |
 | `PROMETHEUS_LISTENER_PORT` | The TCP listener port to expose the prometheus exporter.                                        | OPTIONAL      | `8080`                               |
+| `TZ`                       | Timezone                                                                                        | OPTIONAL      | `UTC`                                |
 
 **HINT:**
 
