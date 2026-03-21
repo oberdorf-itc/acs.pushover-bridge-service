@@ -122,14 +122,28 @@ def __initialize_prometheus_exporter() -> dict:
     log.debug("def initialize_prometheus_exporter() -> dict:")
 
     m = {
-        "service_info": prom.Info('service_info', 'Information about the service'),
-        "mqtt_connects": prom.Counter('mqtt_connects', 'Count all MQTT connection events'),
-        "mqtt_messages": prom.Counter('mqtt_messages', 'Count all received MQTT messages'),
-        "mqtt_messages_refused": prom.Counter('mqtt_messages_refused', 'Count all refused MQTT messages due to timestamp drift.'),
-        "acs_access_granted": prom.Counter('acs_access_granted', 'Count all access granted events received by transponders', labelnames=['entrypoint_ip']),
-        "acs_access_denied": prom.Counter('acs_access_denied', 'Count all access denied events received by transponders', labelnames=['entrypoint_ip']),
-        "acs_status_messages": prom.Counter('acs_status_messages', 'Count all status messages received by the access control system', labelnames=['severity']),
-        "pushover_messages_sent": prom.Counter('pushover_messages_sent', 'Count all messages sent to pushover', labelnames=['result_code']),
+        "service_info": prom.Info("service_info", "Information about the service"),
+        "mqtt_connects": prom.Counter("mqtt_connects", "Count all MQTT connection events"),
+        "mqtt_messages": prom.Counter("mqtt_messages", "Count all received MQTT messages"),
+        "mqtt_messages_refused": prom.Counter(
+            "mqtt_messages_refused", "Count all refused MQTT messages due to timestamp drift."
+        ),
+        "acs_access_granted": prom.Counter(
+            "acs_access_granted",
+            "Count all access granted events received by transponders",
+            labelnames=["entrypoint_ip"],
+        ),
+        "acs_access_denied": prom.Counter(
+            "acs_access_denied", "Count all access denied events received by transponders", labelnames=["entrypoint_ip"]
+        ),
+        "acs_status_messages": prom.Counter(
+            "acs_status_messages",
+            "Count all status messages received by the access control system",
+            labelnames=["severity"],
+        ),
+        "pushover_messages_sent": prom.Counter(
+            "pushover_messages_sent", "Count all messages sent to pushover", labelnames=["result_code"]
+        ),
     }
 
     prometheus_listener_addr = os.environ.get("PROMETHEUS_LISTENER_ADDR", "0.0.0.0")
@@ -348,7 +362,7 @@ def on_message(client: mqtt.Client, userdata: dict, msg: mqtt.MQTTMessage) -> No
 
     # get repsonse
     response = conn.getresponse()
-    metrics['pushover_messages_sent'].labels(result_code=response.status).inc()
+    metrics["pushover_messages_sent"].labels(result_code=response.status).inc()
     if response.status != 200:
         log.error(f"Error in sending push message to pushover: {response.status} {response.reason}")
     else:
@@ -393,14 +407,9 @@ def __prepare_access_message(payload: dict) -> tuple[str, str, int]:
 
     # increment appropriate metric
     if payload.get("status") == "granted":
-        metrics["acs_access_granted"].labels(
-            entrypoint_ip=payload.get("entrypoint_ip", "unknown")
-        ).inc()
+        metrics["acs_access_granted"].labels(entrypoint_ip=payload.get("entrypoint_ip", "unknown")).inc()
     else:
-        metrics["acs_access_denied"].labels(
-            entrypoint_ip=payload.get("entrypoint_ip", "unknown")
-        ).inc()
-
+        metrics["acs_access_denied"].labels(entrypoint_ip=payload.get("entrypoint_ip", "unknown")).inc()
 
     return title, message, priority
 
@@ -455,12 +464,14 @@ if __name__ == "__main__":
 
     # initialize prometheus exporter
     metrics = __initialize_prometheus_exporter()
-    metrics["service_info"].info({
-        "version": __version__,
-        "author": __author__,
-        "status": __status__,
-        "timezone": __local_tz__.zone,
-    })
+    metrics["service_info"].info(
+        {
+            "version": __version__,
+            "author": __author__,
+            "status": __status__,
+            "timezone": __local_tz__.zone,
+        }
+    )
 
     # Initialize MQTT client
     client = __initialize_mqtt_client()
