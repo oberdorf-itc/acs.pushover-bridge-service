@@ -145,8 +145,8 @@ I would appreciate a small donation to support the further development of my ope
 [donate-paypal-link]: https://www.paypal.com/donate/?hosted_button_id=BHGJGGUS6RH44
 [github-action-release-link]: https://github.com/oberdorf-itc/acs.pushover-bridge-service/actions/workflows/release-from-label.yaml
 [github-action-release-shield]: https://img.shields.io/github/actions/workflow/status/oberdorf-itc/acs.pushover-bridge-service/release-from-label.yaml?label=release&labelColor=black&logo=githubactions&logoColor=white&style=flat-square
-[github-action-test-link]: https://github.com/oberdorf-itc/acs.pushover-bridge-service/actions/workflows/container-image-build-validation.yaml
-[github-action-test-shield]: https://img.shields.io/github/actions/workflow/status/oberdorf-itc/acs.pushover-bridge-service/container-image-build-validation.yaml?label=tests&labelColor=black&logo=githubactions&logoColor=white&style=flat-square
+[github-action-test-link]: https://github.com/oberdorf-itc/acs.pushover-bridge-service/actions/workflows/test.yaml
+[github-action-test-shield]: https://img.shields.io/github/actions/workflow/status/oberdorf-itc/acs.pushover-bridge-service/test.yaml?label=tests&labelColor=black&logo=githubactions&logoColor=white&style=flat-square
 [github-forks-link]: https://github.com/oberdorf-itc/acs.pushover-bridge-service/network/members
 [github-forks-shield]: https://img.shields.io/github/forks/oberdorf-itc/acs.pushover-bridge-service?color=8ae8ff&labelColor=black&style=flat-square
 [github-issues-link]: https://github.com/oberdorf-itc/acs.pushover-bridge-service/issues
