@@ -8,6 +8,8 @@ Source code: [GitHub](https://github.com/oberdorf-itc/acs.pushover-bridge-servic
 
 Container image: [DockerHub](https://hub.docker.com/r/oitc/acs.pushover-bridge-service)
 
+Access Control System documentation: [ACS Documentation](https://github.com/oberdorf-itc/acs.documentation/tree/main)
+
 <!-- SHIELD GROUP -->
 [![][github-action-test-shield]][github-action-test-link]
 [![][github-action-release-shield]][github-action-release-link]
@@ -101,32 +103,7 @@ A bigger example can be found here: [`docker-compose.yaml`](./docker-compose.yam
 
 ## MQTT message formats
 
-### Access message when opening a door
-
-```json
-{
-  "timestamp": "<timestamp>",
-  "entrypoint_ip": "<IP address of the RFID reader>",
-  "entrypoint_location": "<Name of the entry point>",
-  "transponder_uid": "<RFID transponder UID>",
-  "user_id": "<user ID>",
-  "user_dn": "<LDAP destinguished name of the user object>",
-  "user_display_name": "<Name of the user>",
-  "status": "<granted|denied>",
-  "send_mail": true|false"
-}
-```
-
-### ACS Server status
-
-```json
-{
-  "timestamp": "<timestamp>",
-  "severity": "<info|warning|error>",
-  "status": "<status short description>",
-  "description": "<status message>"
-}
-```
+Please have a look to the main documentation: [MQTT message reference](https://github.com/oberdorf-itc/acs.documentation/blob/main/docs/mqtt-message-reference.md)
 
 ## Donate
 
